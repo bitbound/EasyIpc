@@ -2,7 +2,7 @@
 A simple-to-use IPC library using named pipes and MessagePack.
 
 ## Links
-NuGet: https://www.nuget.org/packages/Translucency.EasyIpc/
+NuGet: https://www.nuget.org/packages/Translucency.EasyIpc/  
 Repo: https://github.com/lucent-sea/EasyIpc
 
 ## Quick Start
