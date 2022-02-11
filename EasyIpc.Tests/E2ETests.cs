@@ -57,31 +57,28 @@ namespace EasyIpc.Tests
             var pongFromServer = string.Empty;
             var pongFromClient = string.Empty;
 
-            _client.On((Ping ping) =>
-            {
-                _client.Send(new Pong("Pong from client"));
-            });
+_client.On((Ping ping) =>
+{
+    Console.WriteLine("Received ping from server.");
+    _client.Send(new Pong("Pong from client"));
+});
 
-            _client.On((Pong pong) =>
-            {
-                pongFromServer = pong.Message;
-            });
+_server.On((Ping ping) =>
+{
+    Console.WriteLine("Received ping from client.");
+    return new Pong("Pong from server");
+});
 
-            _server.On((Ping ping) =>
-            {
-                _server.Send(new Pong("Pong from server"));
-            });
+_server.On((Pong pong) =>
+{
+    Console.WriteLine("Received pong from client.");
+});
 
-            _server.On((Pong pong) =>
-            {
-                pongFromClient = pong.Message;
-            });
+_client.BeginRead(_cts.Token);
+_server.BeginRead(_cts.Token);
 
-            _client.BeginRead(_cts.Token);
-            _server.BeginRead(_cts.Token);
-
-            await _client.Send(new Ping());
-            await _server.Send(new Ping());
+var pong = await _client.Invoke<Ping, Pong>(new Ping());
+await _server.Send(new Ping());
 
             TaskHelper.DelayUntil(() =>
                 !string.IsNullOrWhiteSpace(pongFromServer) &&
