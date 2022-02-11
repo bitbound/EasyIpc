@@ -5,17 +5,15 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IClient<TMessageType> : IConnectionBase<TMessageType>
-        where TMessageType : Enum
+    public interface IClient : IConnectionBase
     {
         Task Initialize(string serverName, string pipeName);
         Task<bool> Connect(int timeout);
     }
 
-    public class Client<TMessageType> : ConnectionBase<TMessageType>, IClient<TMessageType>
-        where TMessageType : Enum
+    internal class Client : ConnectionBase, IClient
     {
-        public Client(ICallbackCollectionFactory callbackFactory, ILogger<Client<TMessageType>> logger)
+        public Client(ICallbackStoreFactory callbackFactory, ILogger<Client> logger)
             : base(callbackFactory, logger)
         { }
 

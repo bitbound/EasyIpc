@@ -5,8 +5,7 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IRouter<TMessageType>
-        where TMessageType : Enum
+    public interface IRouter
     {
 
         /// <summary>
@@ -15,7 +14,7 @@ namespace EasyIpc
         /// will be assigned a randomly-generated ID for the pipe name.
         /// </summary>
         /// <returns>The newly-created IIpcServer.</returns>
-        Task<IServer<TMessageType>> CreateServer();
+        Task<IServer> CreateServer();
 
         /// <summary>
         /// Creates a message-based IIpcServer that handle messages via registered callbacks.
@@ -23,52 +22,50 @@ namespace EasyIpc
         /// </summary>
         /// <param name="pipeName">The pipe name to use for the IpcServer.</param>
         /// <returns></returns>
-        Task<IServer<TMessageType>> CreateServer(string pipeName);
+        Task<IServer> CreateServer(string pipeName);
 
-        bool TryGetServer(string pipeName, out IServer<TMessageType> server);
+        bool TryGetServer(string pipeName, out IServer server);
 
-        bool TryRemoveServer(string pipeName, out IServer<TMessageType> server);
+        bool TryRemoveServer(string pipeName, out IServer server);
 
     }
 
-    public class Router<TMessageType> : IRouter<TMessageType>
-        where TMessageType : Enum
+    public class Router : IRouter
     {
-        private static readonly ConcurrentDictionary<string, IServer<TMessageType>> _pipeStreams =
-            new ConcurrentDictionary<string, IServer<TMessageType>>();
+        private static readonly ConcurrentDictionary<string, IServer> _pipeStreams = new();
 
-        private readonly IConnectionFactory<TMessageType> _ipcServerFactory;
-        private readonly ILogger _logger;
+        private readonly IConnectionFactory _serverFactory;
+        private readonly ILogger<Router> _logger;
 
-        public Router(IConnectionFactory<TMessageType> ipcServerFactory, ILogger logger)
+        public Router(IConnectionFactory serverFactory, ILogger<Router> logger)
         {
-            _ipcServerFactory = ipcServerFactory ?? throw new ArgumentNullException(nameof(ipcServerFactory));
+            _serverFactory = serverFactory ?? throw new ArgumentNullException(nameof(serverFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
 
-        public async Task<IServer<TMessageType>> CreateServer()
+        public async Task<IServer> CreateServer()
         {
             var pipeName = Guid.NewGuid().ToString();
             return await CreateServerInternal(pipeName);
         }
 
-        public async Task<IServer<TMessageType>> CreateServer(string pipeName)
+        public async Task<IServer> CreateServer(string pipeName)
         {
             return await CreateServerInternal(pipeName);
         }
 
-        public bool TryGetServer(string pipeName, out IServer<TMessageType> server)
+        public bool TryGetServer(string pipeName, out IServer server)
         {
             return _pipeStreams.TryGetValue(pipeName, out server);
         }
 
-        public bool TryRemoveServer(string pipeName, out IServer<TMessageType> server)
+        public bool TryRemoveServer(string pipeName, out IServer server)
         {
             return _pipeStreams.TryRemove(pipeName, out server);
         }
 
-        private async Task<IServer<TMessageType>> CreateServerInternal(string pipeName)
+        private async Task<IServer> CreateServerInternal(string pipeName)
         {
             if (string.IsNullOrWhiteSpace(pipeName))
             {
@@ -77,7 +74,7 @@ namespace EasyIpc
 
             _logger.LogDebug("Creating pipe message server {name}.", pipeName);
 
-            var serverConnection = await _ipcServerFactory.CreateServer(pipeName);
+            var serverConnection = await _serverFactory.CreateServer(pipeName);
 
             serverConnection.ReadingEnded += ServerConnection_ReadingEnded;
 
@@ -89,7 +86,7 @@ namespace EasyIpc
             return serverConnection;
         }
 
-        private void ServerConnection_ReadingEnded(object sender, IConnectionBase<TMessageType> args)
+        private void ServerConnection_ReadingEnded(object sender, IConnectionBase args)
         {
             if (_pipeStreams.TryRemove(args.PipeName, out var server))
             {

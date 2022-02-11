@@ -4,14 +4,15 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IConnectionBase<TMessageType> : IDisposable
+    public interface IConnectionBase : IDisposable
     {
-        event EventHandler<IConnectionBase<TMessageType>> ReadingEnded;
+        event EventHandler<IConnectionBase> ReadingEnded;
 
         bool IsConnected { get; }
         string PipeName { get; }
@@ -19,45 +20,39 @@ namespace EasyIpc
 
         void BeginRead(CancellationToken cancellationToken);
         Stream GetStream();
-        Task<Result<TReturnType>> Invoke<TReturnType, TContentType>(TMessageType messageType, TContentType content, int timeoutMs = 5000);
+        Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000);
 
-        Task<Result<TReturnType>> Invoke<TReturnType>(TMessageType messageType, int timeoutMs = 5000);
+        void Off<TContentType>();
+        void Off<TContentType>(CallbackToken callbackToken);
+        CallbackToken On<TContentType>(Action<TContentType> callback);
 
-        IConnectionBase<TMessageType> Off<TContentType>(TMessageType messageType);
-        IConnectionBase<TMessageType> On<TContentType>(TMessageType messageType, Action<TContentType> callback);
-
-        IConnectionBase<TMessageType> On<TContentType, ReturnType>(TMessageType messageType, Func<TContentType, ReturnType> handler);
-        IConnectionBase<TMessageType> On<ReturnType>(TMessageType messageType, Func<ReturnType> handler);
-        Task Send<TContentType>(TMessageType messageType, TContentType content, int timeoutMs = 5000);
+        CallbackToken On<TContentType, ReturnType>(Func<TContentType, ReturnType> handler);
+        Task Send<TContentType>(TContentType content, int timeoutMs = 5000);
     }
 
 
-    public abstract class ConnectionBase<TMessageType> : IConnectionBase<TMessageType>
-        where TMessageType : Enum
+    internal abstract class ConnectionBase : IConnectionBase
     {
         protected readonly SemaphoreSlim _initLock = new(1, 1);
         protected readonly ILogger _logger;
         protected PipeStream _pipeStream;
 
-        private readonly ConcurrentDictionary<TMessageType, ICallbackCollection<TMessageType>> _callbacks = new();
-        private readonly ConcurrentDictionary<Guid, TaskCompletionSource<MessageWrapper<TMessageType>>> _invokesPendingCompletion = new();
-        private readonly ICallbackCollectionFactory _ipcCallbackFactory;
+        private readonly ConcurrentDictionary<Guid, TaskCompletionSource<MessageWrapper>> _invokesPendingCompletion = new();
+        private readonly ICallbackStore _callbackStore;
         private CancellationToken _readStreamCancelToken;
         private Task _readTask;
 
 
-        public ConnectionBase(ICallbackCollectionFactory ipcCallbackFactory, ILogger logger)
+        public ConnectionBase(ICallbackStoreFactory callbackFactory, ILogger logger)
         {
-            _ipcCallbackFactory = ipcCallbackFactory ?? throw new ArgumentNullException(nameof(ipcCallbackFactory));
+            _callbackStore = callbackFactory?.Create() ?? throw new ArgumentNullException(nameof(callbackFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public event EventHandler<IConnectionBase<TMessageType>> ReadingEnded;
-
-        public string PipeName { get; protected set; }
+        public event EventHandler<IConnectionBase> ReadingEnded;
 
         public bool IsConnected => _pipeStream?.IsConnected ?? false;
-
+        public string PipeName { get; protected set; }
         public void BeginRead(CancellationToken cancellationToken)
         {
             if (_readTask?.IsCompleted == false)
@@ -79,11 +74,11 @@ namespace EasyIpc
             return _pipeStream;
         }
 
-        public async Task<Result<TReturnType>> Invoke<TReturnType>(MessageWrapper<TMessageType> wrapper, int timeoutMs = 5000)
+        public async Task<Result<TReturnType>> Invoke<TReturnType>(MessageWrapper wrapper, int timeoutMs = 5000)
         {
             try
             {
-                var tcs = new TaskCompletionSource<MessageWrapper<TMessageType>>();
+                var tcs = new TaskCompletionSource<MessageWrapper>();
                 if (!_invokesPendingCompletion.TryAdd(wrapper.Id, tcs))
                 {
                     _logger.LogWarning("Already waiting for invoke completion of message ID {id}.", wrapper.Id);
@@ -94,7 +89,7 @@ namespace EasyIpc
 
                 if (!await Task.Run(() => tcs.Task.Wait(timeoutMs)))
                 {
-                    _logger.LogWarning("Timed out while invoking message type {messageType}.", wrapper.MessageType);
+                    _logger.LogWarning("Timed out while invoking message type {contentType}.", wrapper.ContentType);
 
                     return Result.Fail<TReturnType>("Timed out while invoking message.");
                 }
@@ -109,33 +104,30 @@ namespace EasyIpc
             }
         }
 
-        public Task<Result<TReturnType>> Invoke<TReturnType, TContentType>(
-            TMessageType messageType,
-            TContentType content,
-            int timeoutMs = 5000)
+        public Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
         {
-            var wrapper = new MessageWrapper<TMessageType>(messageType, content, typeof(TContentType));
+            var wrapper = new MessageWrapper(typeof(TContentType), content, MessageType.Invoke);
 
             return Invoke<TReturnType>(wrapper, timeoutMs);
         }
 
-        public Task<Result<TReturnType>> Invoke<TReturnType>(TMessageType messageType, int timeoutMs = 5000)
+        public void Off<TContentType>()
         {
-            var wrapper = new MessageWrapper<TMessageType>(messageType);
-            return Invoke<TReturnType>(wrapper, timeoutMs);
-        }
-
-        public IConnectionBase<TMessageType> Off<TContentType>(TMessageType messageType)
-        {
-            if (!_callbacks.TryRemove(messageType, out _))
+            if (!_callbackStore.TryRemoveAll(typeof(TContentType)))
             {
-                _logger.LogWarning("The message type {messageType} wasn't found in the callback colection.", messageType);
+                _logger.LogWarning("The message type {contentType} wasn't found in the callback colection.", typeof(TContentType));
             }
-
-            return this;
         }
 
-        public IConnectionBase<TMessageType> On<TContentType>(TMessageType messageType, Action<TContentType> callback)
+        public void Off<TContentType>(CallbackToken callbackToken)
+        {
+            if (!_callbackStore.TryRemove(typeof(TContentType), callbackToken))
+            {
+                _logger.LogWarning("The message type {contentType} wasn't found in the callback colection.", typeof(TContentType));
+            }
+        }
+
+        public CallbackToken On<TContentType>(Action<TContentType> callback)
         {
             if (callback is null)
             {
@@ -144,24 +136,11 @@ namespace EasyIpc
 
             var objectCallback = new Action<object>(x => callback((TContentType)x));
 
-            _callbacks.AddOrUpdate(messageType,
-                _ =>
-                {
-                    var newCollection = _ipcCallbackFactory.Create<TMessageType>();
-                    newCollection.Add(typeof(TContentType), objectCallback);
-                    return newCollection;
-                },
-                (k, v) =>
-                {
-                    v.Add(typeof(TContentType), objectCallback);
-                    return v;
-                });
-
-            return this;
+            return _callbackStore.Add(typeof(TContentType), objectCallback);
         }
 
 
-        public IConnectionBase<TMessageType> On<TContentType, ReturnType>(TMessageType messageType, Func<TContentType, ReturnType> handler)
+        public CallbackToken On<TContentType, ReturnType>(Func<TContentType, ReturnType> handler)
         {
             if (handler is null)
             {
@@ -170,56 +149,49 @@ namespace EasyIpc
 
             var objectHandler = new Func<object, object>(x => handler((TContentType)x));
 
-            _callbacks.AddOrUpdate(messageType,
-                _ =>
-                {
-                    var newCollection = _ipcCallbackFactory.Create<TMessageType>();
-                    newCollection.Add(objectHandler, typeof(TContentType), typeof(ReturnType));
-                    return newCollection;
-                },
-                (k, v) =>
-                {
-                    v.Add(objectHandler, typeof(TContentType), typeof(ReturnType));
-                    return v;
-                });
-
-            return this;
+            return _callbackStore.Add(objectHandler, typeof(TContentType), typeof(ReturnType));
         }
 
-        public IConnectionBase<TMessageType> On<ReturnType>(TMessageType messageType, Func<ReturnType> handler)
+        public Task Send<TContentType>(TContentType content, int timeoutMs = 5000)
         {
-
-            if (handler is null)
-            {
-                throw new ArgumentNullException(nameof(handler));
-            }
-
-            var objectHandler = new Func<object>(() => handler());
-
-            _callbacks.AddOrUpdate(messageType,
-                _ =>
-                {
-                    var newCollection = _ipcCallbackFactory.Create<TMessageType>();
-                    newCollection.Add(objectHandler, typeof(ReturnType));
-                    return newCollection;
-                },
-                (k, v) =>
-                {
-                    v.Add(objectHandler, typeof(ReturnType));
-                    return v;
-                });
-
-            return this;
-        }
-
-        public Task Send<TContentType>(TMessageType messageType, TContentType content, int timeoutMs = 5000)
-        {
-            return SendInternal(messageType, content, typeof(TContentType), timeoutMs);
+            return SendInternal(typeof(TContentType), content, timeoutMs);
         }
 
         private void OnReadingEnded()
         {
             ReadingEnded?.Invoke(this, this);
+        }
+
+        private async Task ProcessMessage(MessageWrapper wrapper)
+        {
+            switch (wrapper.MessageType)
+            {
+                case MessageType.Response:
+                    {
+                        if (_invokesPendingCompletion.TryGetValue(wrapper.ResponseTo, out var tcs))
+                        {
+                            tcs.SetResult(wrapper);
+                        }
+                        break;
+                    }
+                case MessageType.Send:
+                    {
+                        await _callbackStore.InvokeActions(wrapper);
+                        break;
+                    }
+                case MessageType.Invoke:
+                    {
+                        await _callbackStore.InvokeFuncs(wrapper, async result =>
+                        {
+                            await SendInternal(result);
+                        });
+                        break;
+                    }
+                case MessageType.Unspecified:
+                default:
+                    _logger.LogWarning("Unexpected message type: {messageType}", wrapper.MessageType);
+                    break;
+            }
         }
 
         private async Task ReadFromStream()
@@ -247,24 +219,9 @@ namespace EasyIpc
                         bytesRead += await _pipeStream.ReadAsync(buffer, 0, messageSize, _readStreamCancelToken);
                     }
 
-                    var wrapper = MessagePackSerializer.Deserialize<MessageWrapper<TMessageType>>(buffer);
+                    var wrapper = MessagePackSerializer.Deserialize<MessageWrapper>(buffer);
 
-                    if (wrapper.ResponseTo != Guid.Empty &&
-                        _invokesPendingCompletion.TryGetValue(wrapper.ResponseTo, out var tcs))
-                    {
-                        tcs.SetResult(wrapper);
-                        continue;
-                    }
-
-                    if (_callbacks.TryGetValue(wrapper.MessageType, out var callbackCollection))
-                    {
-                        await callbackCollection.InvokeActions(wrapper);
-
-                        await callbackCollection.InvokeFuncs(wrapper, async result =>
-                        {
-                            await SendInternal(result);
-                        });
-                    }
+                    await ProcessMessage(wrapper);
                 }
                 catch (ThreadAbortException ex)
                 {
@@ -279,13 +236,12 @@ namespace EasyIpc
             _logger.LogDebug("IPC stream reading ended. Pipe Name: {pipeName}", PipeName);
             OnReadingEnded();
         }
-
-        private Task SendInternal(TMessageType messageType, object content, Type contentType, int timeoutMs = 5000)
+        private Task SendInternal(Type contentType, object content, int timeoutMs = 5000)
         {
-            var wrapper = new MessageWrapper<TMessageType>(messageType, content, contentType);
+            var wrapper = new MessageWrapper(contentType, content, MessageType.Send);
             return SendInternal(wrapper, timeoutMs);
         }
-        private async Task SendInternal(MessageWrapper<TMessageType> wrapper, int timeoutMs = 5000)
+        private async Task SendInternal(MessageWrapper wrapper, int timeoutMs = 5000)
         {
             try
             {
@@ -305,9 +261,7 @@ namespace EasyIpc
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error sending message.  Message Type: {messageType}.  Content Type: {contentType}",
-                    typeof(TMessageType),
-                    wrapper.ContentType);
+                _logger.LogWarning(ex, "Error sending message.  Content Type: {contentType}", wrapper.ContentType);
             }
         }
     }

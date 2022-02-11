@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IServer<TMessageType> : IConnectionBase<TMessageType>
-        where TMessageType : Enum
+    public interface IServer : IConnectionBase
     {
         Task Initialize(string pipeName);
 
@@ -15,10 +14,9 @@ namespace EasyIpc
     }
 
 
-    public class Server<TMessageType> : ConnectionBase<TMessageType>, IServer<TMessageType>
-        where TMessageType : Enum
+    internal class Server : ConnectionBase, IServer
     {
-        public Server(ICallbackCollectionFactory callbackFactory, ILogger<Server<TMessageType>> logger)
+        public Server(ICallbackStoreFactory callbackFactory, ILogger<Server> logger)
             : base(callbackFactory, logger)
         { }
 
@@ -58,6 +56,10 @@ namespace EasyIpc
                 return true;
             }
             catch (TaskCanceledException)
+            {
+                return false;
+            }
+            catch (OperationCanceledException)
             {
                 return false;
             }

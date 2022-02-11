@@ -5,29 +5,24 @@ using System.Runtime.Serialization;
 namespace EasyIpc
 {
     [DataContract]
-    public class MessageWrapper<TMessageType>
-        where TMessageType : Enum
+    public class MessageWrapper
     {
+        [SerializationConstructor]
         public MessageWrapper()
         {
             Id = Guid.NewGuid();
         }
 
-        public MessageWrapper(TMessageType messageType)
-           : this()
+        public MessageWrapper(Type contentType, object content, MessageType messageType)
+            : this()
         {
+            Content = MessagePackSerializer.Serialize(contentType, content);
+            ContentType = contentType;
             MessageType = messageType;
         }
 
-        public MessageWrapper(TMessageType messageType, object content, Type contentType)
-            : this(messageType)
-        {
-            Content = MessagePackSerializer.Serialize(content);
-            ContentType = contentType;
-        }
-
-        public MessageWrapper(TMessageType messageType, object content, Type contentType, Guid responseTo)
-            : this(messageType, content, contentType)
+        public MessageWrapper(Type contentType, object content, Guid responseTo)
+            : this(contentType, content, MessageType.Response)
         {
             ResponseTo = responseTo;
         }
@@ -42,7 +37,7 @@ namespace EasyIpc
         public Type ContentType { get; set; }
 
         [DataMember]
-        public TMessageType MessageType { get; set; }
+        public MessageType MessageType { get; set;}
 
         [DataMember]
         public Guid ResponseTo { get; set; }
