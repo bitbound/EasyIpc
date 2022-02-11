@@ -2,7 +2,30 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Authors>Jared Goodwin</Authors>
+    <Company>Translucency</Company>
+    <Description>A simple-to-use IPC library using named pipes and MessagePack.</Description>
+    <Copyright>(c) Jared Goodwin 2022</Copyright>
+    <PackageProjectUrl>https://github.com/lucent-sea/EasyIpc</PackageProjectUrl>
+    <PackageIcon>T.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/lucent-sea/EasyIpc</RepositoryUrl>
+    <PackageTags>ipc;pipes;netstandard</PackageTags>
+    <PackageId>Translucency.$(AssemblyName)</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="C:\Users\trans\OneDrive\Projects\Images\T.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MessagePack" Version="2.3.85" />
