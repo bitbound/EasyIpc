@@ -57,28 +57,28 @@ namespace EasyIpc.Tests
             var pongFromServer = string.Empty;
             var pongFromClient = string.Empty;
 
-_client.On((Ping ping) =>
-{
-    Console.WriteLine("Received ping from server.");
-    _client.Send(new Pong("Pong from client"));
-});
+            _client.On((Ping ping) =>
+            {
+                Console.WriteLine("Received ping from server.");
+                _client.Send(new Pong("Pong from client"));
+            });
 
-_server.On((Ping ping) =>
-{
-    Console.WriteLine("Received ping from client.");
-    return new Pong("Pong from server");
-});
+            _server.On((Ping ping) =>
+            {
+                Console.WriteLine("Received ping from client.");
+                return new Pong("Pong from server");
+            });
 
-_server.On((Pong pong) =>
-{
-    Console.WriteLine("Received pong from client.");
-});
+            _server.On((Pong pong) =>
+            {
+                Console.WriteLine("Received pong from client.");
+            });
 
-_client.BeginRead(_cts.Token);
-_server.BeginRead(_cts.Token);
+            _client.BeginRead(_cts.Token);
+            _server.BeginRead(_cts.Token);
 
-var pong = await _client.Invoke<Ping, Pong>(new Ping());
-await _server.Send(new Ping());
+            var pong = await _client.Invoke<Ping, Pong>(new Ping());
+            await _server.Send(new Ping());
 
             TaskHelper.DelayUntil(() =>
                 !string.IsNullOrWhiteSpace(pongFromServer) &&
@@ -267,7 +267,8 @@ await _server.Send(new Ping());
 
             var mbps = bytesReceived / 1024 / 1024 * 8 / sw.Elapsed.TotalSeconds;
 
-            Console.WriteLine($"Mbps: {mbps}");
+            Console.WriteLine($"{bytesReceived:N0} total bytes received in {sw.Elapsed.TotalMilliseconds:N} milliseconds.");
+            Console.WriteLine($"Mbps: {mbps:N}");
             Assert.IsTrue(mbps > 500);
         }
 
