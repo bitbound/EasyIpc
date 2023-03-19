@@ -6,32 +6,35 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IServer : IConnectionBase
+    public interface IIpcServer : IConnectionBase
     {
-        Task Initialize(string pipeName);
-
         Task<bool> WaitForConnection(CancellationToken cancellationToken);
     }
 
 
-    internal class Server : ConnectionBase, IServer
+    internal class IpcServer : ConnectionBase, IIpcServer
     {
-        public Server(ICallbackStoreFactory callbackFactory, ILogger<Server> logger)
-            : base(callbackFactory, logger)
-        { }
-
-
-        public Task Initialize(string pipeName)
+        public IpcServer(
+            string pipeName,
+            ICallbackStoreFactory callbackFactory, 
+            ILogger<IpcServer> logger)
+            : base(pipeName, callbackFactory, logger)
         {
-            return InitializeInternal(pipeName);
+            _pipeStream = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                NamedPipeServerStream.MaxAllowedServerInstances,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
         }
+
 
 
         public async Task<bool> WaitForConnection(CancellationToken cancellationToken)
         {
             try
             {
-                await _initLock.WaitAsync();
+                await _connectLock.WaitAsync();
 
                 if (_pipeStream is null)
                 {
@@ -65,35 +68,7 @@ namespace EasyIpc
             }
             finally
             {
-                _initLock.Release();
-            }
-        }
-
-        private async Task InitializeInternal(string pipeName)
-        {
-            try
-            {
-                await _initLock.WaitAsync();
-
-                if (_pipeStream != null)
-                {
-                    throw new InvalidOperationException("This IPC server has already been initialized.");
-                }
-
-                _logger.LogDebug("IPC server connection initializing.  Pipe name: {pipeName}.", pipeName);
-
-
-                PipeName = pipeName;
-
-                _pipeStream = new NamedPipeServerStream(pipeName,
-                    PipeDirection.InOut,
-                    NamedPipeServerStream.MaxAllowedServerInstances,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
-            }
-            finally
-            {
-                _initLock.Release();
+                _connectLock.Release();
             }
         }
     }

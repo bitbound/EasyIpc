@@ -19,8 +19,8 @@ namespace EasyIpc.Tests
         private string _pipeName;
         private CancellationTokenSource _cts;
         private IConnectionFactory _connectionFactory;
-        private IServer _server;
-        private IClient _client;
+        private IIpcServer _server;
+        private IIpcClient _client;
 
         [TestInitialize]
         public async Task TestInit()

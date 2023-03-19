@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IRouter
+    public interface IIpcRouter
     {
 
         /// <summary>
@@ -14,7 +14,7 @@ namespace EasyIpc
         /// will be assigned a randomly-generated ID for the pipe name.
         /// </summary>
         /// <returns>The newly-created IIpcServer.</returns>
-        Task<IServer> CreateServer();
+        Task<IIpcServer> CreateServer();
 
         /// <summary>
         /// Creates a message-based IIpcServer that handle messages via registered callbacks.
@@ -22,53 +22,53 @@ namespace EasyIpc
         /// </summary>
         /// <param name="pipeName">The pipe name to use for the IpcServer.</param>
         /// <returns></returns>
-        Task<IServer> CreateServer(string pipeName);
+        Task<IIpcServer> CreateServer(string pipeName);
 
-        bool TryGetServer(string pipeName, out IServer server);
+        bool TryGetServer(string pipeName, out IIpcServer server);
 
-        bool TryRemoveServer(string pipeName, out IServer server);
+        bool TryRemoveServer(string pipeName, out IIpcServer server);
 
     }
 
-    public class Router : IRouter
+    public class IpcRouter : IIpcRouter
     {
-        private static Router? _default;
-        public static IRouter Default => _default ??= new Router(ConnectionFactory.Default, new LoggerFactory().CreateLogger<Router>());
+        private static IpcRouter? _default;
+        public static IIpcRouter Default => _default ??= new IpcRouter(ConnectionFactory.Default, new LoggerFactory().CreateLogger<IpcRouter>());
 
-        private static readonly ConcurrentDictionary<string, IServer> _pipeStreams = new();
+        private static readonly ConcurrentDictionary<string, IIpcServer> _pipeStreams = new();
 
         private readonly IConnectionFactory _serverFactory;
-        private readonly ILogger<Router> _logger;
+        private readonly ILogger<IpcRouter> _logger;
 
-        public Router(IConnectionFactory serverFactory, ILogger<Router> logger)
+        public IpcRouter(IConnectionFactory serverFactory, ILogger<IpcRouter> logger)
         {
             _serverFactory = serverFactory ?? throw new ArgumentNullException(nameof(serverFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
 
-        public async Task<IServer> CreateServer()
+        public async Task<IIpcServer> CreateServer()
         {
             var pipeName = Guid.NewGuid().ToString();
             return await CreateServerInternal(pipeName);
         }
 
-        public async Task<IServer> CreateServer(string pipeName)
+        public async Task<IIpcServer> CreateServer(string pipeName)
         {
             return await CreateServerInternal(pipeName);
         }
 
-        public bool TryGetServer(string pipeName, out IServer server)
+        public bool TryGetServer(string pipeName, out IIpcServer server)
         {
             return _pipeStreams.TryGetValue(pipeName, out server);
         }
 
-        public bool TryRemoveServer(string pipeName, out IServer server)
+        public bool TryRemoveServer(string pipeName, out IIpcServer server)
         {
             return _pipeStreams.TryRemove(pipeName, out server);
         }
 
-        private async Task<IServer> CreateServerInternal(string pipeName)
+        private async Task<IIpcServer> CreateServerInternal(string pipeName)
         {
             if (string.IsNullOrWhiteSpace(pipeName))
             {

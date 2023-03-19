@@ -35,7 +35,7 @@ namespace EasyIpc
 
     internal abstract class ConnectionBase : IConnectionBase
     {
-        protected readonly SemaphoreSlim _initLock = new(1, 1);
+        protected readonly SemaphoreSlim _connectLock = new(1, 1);
         protected readonly ILogger _logger;
         protected PipeStream? _pipeStream;
 
@@ -45,8 +45,12 @@ namespace EasyIpc
         private Task? _readTask;
 
 
-        public ConnectionBase(ICallbackStoreFactory callbackFactory, ILogger logger)
+        public ConnectionBase(
+            string pipeName,
+            ICallbackStoreFactory callbackFactory, 
+            ILogger logger)
         {
+            PipeName = pipeName;
             _callbackStore = callbackFactory?.Create() ?? throw new ArgumentNullException(nameof(callbackFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -54,7 +58,7 @@ namespace EasyIpc
         public event EventHandler<IConnectionBase>? ReadingEnded;
 
         public bool IsConnected => _pipeStream?.IsConnected ?? false;
-        public string PipeName { get; protected set; } = string.Empty;
+        public string PipeName { get; }
 
         public void BeginRead(CancellationToken cancellationToken)
         {

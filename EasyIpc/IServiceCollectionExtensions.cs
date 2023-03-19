@@ -13,10 +13,10 @@ namespace EasyIpc
             services.AddLogging();
             services.AddSingleton<IConnectionFactory, ConnectionFactory>();
             services.AddSingleton<ICallbackStoreFactory, CallbackStoreFactory>();
-            services.AddSingleton<IRouter, Router>();
-            services.AddScoped<IClient, Client>();
-            services.AddScoped<IServer, Server>();
-            services.AddScoped<ICallbackStore, CallbackStore>();
+            services.AddSingleton<IIpcRouter, IpcRouter>();
+            services.AddTransient<IIpcClient, IpcClient>();
+            services.AddTransient<IIpcServer, IpcServer>();
+            services.AddTransient<ICallbackStore, CallbackStore>();
             return services;
         }
     }

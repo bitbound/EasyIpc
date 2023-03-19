@@ -12,7 +12,7 @@ var serviceCollection = new ServiceCollection();
 serviceCollection.AddEasyIpc();
 var provider = serviceCollection.BuildServiceProvider();
 
-var router = provider.GetRequiredService<IRouter>();
+var router = provider.GetRequiredService<IIpcRouter>();
 var connectionFactory = provider.GetRequiredService<IConnectionFactory>();
 ```
 
