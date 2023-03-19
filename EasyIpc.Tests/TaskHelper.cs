@@ -7,7 +7,7 @@ namespace EasyIpc.Tests
 {
     public static class TaskHelper
     {
-        public static bool DelayUntil(Func<bool> condition, TimeSpan timeout, int pollingMs = 10)
+        public static bool WaitFor(Func<bool> condition, TimeSpan timeout, int pollingMs = 10)
         {
             var sw = Stopwatch.StartNew();
             while (!condition() && sw.Elapsed < timeout)
@@ -17,17 +17,14 @@ namespace EasyIpc.Tests
             return condition();
         }
 
-        public static Task<bool> DelayUntilAsync(Func<bool> condition, TimeSpan timeout, int pollingMs = 10)
+        public static async Task<bool> WaitForAsync(Func<bool> condition, TimeSpan timeout, int pollingMs = 10)
         {
-            return Task.Run(() =>
+            var sw = Stopwatch.StartNew();
+            while (!condition() && sw.Elapsed < timeout)
             {
-                var sw = Stopwatch.StartNew();
-                while (!condition() && sw.Elapsed < timeout)
-                {
-                    Thread.Sleep(pollingMs);
-                }
-                return condition();
-            });
+                await Task.Delay(pollingMs);
+            }
+            return condition();
         }
     }
 }

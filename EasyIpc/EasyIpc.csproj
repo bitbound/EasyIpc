@@ -6,7 +6,7 @@
     <Authors>Jared Goodwin</Authors>
     <Company>Translucency</Company>
     <Description>A simple-to-use IPC library using named pipes and MessagePack.</Description>
-    <Copyright>(c) Jared Goodwin 2022</Copyright>
+    <Copyright>(c) Jared Goodwin 2023</Copyright>
     <PackageProjectUrl>https://github.com/lucent-sea/EasyIpc</PackageProjectUrl>
     <PackageIcon>T.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -14,6 +14,10 @@
     <PackageTags>ipc;pipes;netstandard</PackageTags>
     <PackageId>Translucency.$(AssemblyName)</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<Nullable>enable</Nullable>
+	<AssemblyVersion></AssemblyVersion>
+	<FileVersion></FileVersion>
+	<VersionPrefix>2.0.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,11 +32,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessagePack" Version="2.3.85" />
+    <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

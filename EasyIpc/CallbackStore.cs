@@ -1,4 +1,5 @@
 ﻿using MessagePack;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -24,6 +25,12 @@ namespace EasyIpc
         private readonly SemaphoreSlim _actionsLock = new(1, 1);
         private readonly ConcurrentDictionary<Type, List<IpcFunc>> _funcs = new();
         private readonly SemaphoreSlim _funcsLock = new(1, 1);
+        private readonly ILogger<CallbackStore> _logger;
+
+        public CallbackStore(ILogger<CallbackStore> logger)
+        {
+            _logger = logger;
+        }
 
         public CallbackToken Add(Type contentType, Action<object> callback)
         {
@@ -86,6 +93,11 @@ namespace EasyIpc
                     if (callback.ContentType == wrapper.ContentType)
                     {
                         var content = MessagePackSerializer.Deserialize(wrapper.ContentType, wrapper.Content);
+                        if (content is null)
+                        {
+                            _logger.LogError("Failed to deserialize message wrapper.");
+                            return;
+                        }
                         callback.Action.Invoke(content);
                     }
                 }
@@ -114,17 +126,28 @@ namespace EasyIpc
 
                 foreach (var func in funcs)
                 {
-                    object result = default;
+                    object? result = default;
                     Type returnType = func.ReturnType;
 
                     if (func.ContentType is null)
                     {
-                        result = func.Handler.Invoke();
+                        result = func.Handler?.Invoke();
                     }
                     else if (func.ContentType == wrapper.ContentType)
                     {
                         var content = MessagePackSerializer.Deserialize(wrapper.ContentType, wrapper.Content);
-                        result = func.Handler2.Invoke(content);
+                        if (content is null)
+                        {
+                            _logger.LogError("Failed to deserialize message wrapper.");
+                            return;
+                        }
+                        result = func.Handler2?.Invoke(content);
+                    }
+
+                    if (result is null)
+                    {
+                        _logger.LogError("Handler result is null.");
+                        return;
                     }
 
                     if (result is Task resultTask)
@@ -225,11 +248,11 @@ namespace EasyIpc
                 CallbackToken = callbackToken;
             }
 
-            public Type ContentType { get; }
+            public Type? ContentType { get; }
             public Type ReturnType { get; }
             public CallbackToken CallbackToken { get; }
-            public Func<object> Handler { get; }
-            public Func<object, object> Handler2 { get; }
+            public Func<object>? Handler { get; }
+            public Func<object, object>? Handler2 { get; }
         }
     }
 }

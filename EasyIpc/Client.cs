@@ -47,7 +47,7 @@ namespace EasyIpc
                 _initLock.Release();
             }
 
-            return _pipeStream.IsConnected;
+            return _pipeStream?.IsConnected == true;
         }
 
         public Task Initialize(string serverName, string pipeName)

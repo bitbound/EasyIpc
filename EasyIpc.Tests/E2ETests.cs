@@ -28,7 +28,7 @@ namespace EasyIpc.Tests
             _pipeName = Guid.NewGuid().ToString();
             _cts = new CancellationTokenSource();
 
-            _connectionFactory = Bootstrapper.DefaultFactory;
+            _connectionFactory = ConnectionFactory.Default;
             _server = await _connectionFactory.CreateServer(_pipeName);
             _client = await _connectionFactory.CreateClient(".", _pipeName);
         }
@@ -54,38 +54,33 @@ namespace EasyIpc.Tests
 
             Assert.IsTrue(result);
 
-            var pongFromServer = string.Empty;
+            var pingFromServer = string.Empty;
             var pongFromClient = string.Empty;
 
             _client.On((Ping ping) =>
             {
                 Console.WriteLine("Received ping from server.");
+                pingFromServer = ping.Message;
                 _client.Send(new Pong("Pong from client"));
-            });
-
-            _server.On((Ping ping) =>
-            {
-                Console.WriteLine("Received ping from client.");
-                return new Pong("Pong from server");
             });
 
             _server.On((Pong pong) =>
             {
                 Console.WriteLine("Received pong from client.");
+                pongFromClient = pong.Message;
             });
 
             _client.BeginRead(_cts.Token);
             _server.BeginRead(_cts.Token);
 
-            var pong = await _client.Invoke<Ping, Pong>(new Ping());
-            await _server.Send(new Ping());
+            await _server.Send(new Ping("Ping from server"));
 
-            TaskHelper.DelayUntil(() =>
-                !string.IsNullOrWhiteSpace(pongFromServer) &&
+            TaskHelper.WaitFor(() =>
+                !string.IsNullOrWhiteSpace(pingFromServer) &&
                 !string.IsNullOrWhiteSpace(pongFromClient),
                 TimeSpan.FromSeconds(1));
 
-            Assert.AreEqual("Pong from server", pongFromServer);
+            Assert.AreEqual("Ping from server", pingFromServer);
             Assert.AreEqual("Pong from client", pongFromClient);
         }
 
@@ -109,7 +104,7 @@ namespace EasyIpc.Tests
 
             await _client.Send(new Ping());
 
-            TaskHelper.DelayUntil(() =>
+            TaskHelper.WaitFor(() =>
                 count > 0,
                 TimeSpan.FromSeconds(1));
 
@@ -143,7 +138,7 @@ namespace EasyIpc.Tests
 
             await _client.Send(new Ping());
 
-            TaskHelper.DelayUntil(() =>
+            TaskHelper.WaitFor(() =>
                 count > 0,
                 TimeSpan.FromSeconds(1));
 
@@ -152,7 +147,7 @@ namespace EasyIpc.Tests
             _server.Off<Pong>();
 
             await _client.Send(new Ping());
-            TaskHelper.DelayUntil(() =>
+            TaskHelper.WaitFor(() =>
               count > 1,
               TimeSpan.FromSeconds(1));
 
@@ -183,7 +178,7 @@ namespace EasyIpc.Tests
 
             await _client.Send(new Ping());
 
-            TaskHelper.DelayUntil(() =>
+            TaskHelper.WaitFor(() =>
                 count > 1,
                 TimeSpan.FromSeconds(1));
 
@@ -192,7 +187,7 @@ namespace EasyIpc.Tests
             _server.Off<Ping>(token1);
 
             await _client.Send(new Ping());
-            TaskHelper.DelayUntil(() =>
+            TaskHelper.WaitFor(() =>
               count > 2,
               TimeSpan.FromSeconds(1));
 
@@ -230,7 +225,7 @@ namespace EasyIpc.Tests
         [TestMethod]
         public async Task Send_GivenIdealScenario_OkThroughput()
         {
-            var connectionFactory = new ConnectionFactory(new CallbackStoreFactory(), new LoggerFactory());
+            var connectionFactory = new ConnectionFactory(new CallbackStoreFactory(new LoggerFactory()), new LoggerFactory());
             var server = await connectionFactory.CreateServer("throughput-test");
             var client = await connectionFactory.CreateClient(".", "throughput-test");
 

@@ -19,15 +19,17 @@ namespace EasyIpc
 
 
         void BeginRead(CancellationToken cancellationToken);
-        Stream GetStream();
-        Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000);
+        Stream? GetStream();
+        Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
+            where TContentType : notnull;
 
         void Off<TContentType>();
         void Off<TContentType>(CallbackToken callbackToken);
         CallbackToken On<TContentType>(Action<TContentType> callback);
 
         CallbackToken On<TContentType, ReturnType>(Func<TContentType, ReturnType> handler);
-        Task Send<TContentType>(TContentType content, int timeoutMs = 5000);
+        Task Send<TContentType>(TContentType content, int timeoutMs = 5000)
+             where TContentType : notnull;
     }
 
 
@@ -35,12 +37,12 @@ namespace EasyIpc
     {
         protected readonly SemaphoreSlim _initLock = new(1, 1);
         protected readonly ILogger _logger;
-        protected PipeStream _pipeStream;
+        protected PipeStream? _pipeStream;
 
-        private readonly ConcurrentDictionary<Guid, TaskCompletionSource<MessageWrapper>> _invokesPendingCompletion = new();
         private readonly ICallbackStore _callbackStore;
+        private readonly ConcurrentDictionary<Guid, TaskCompletionSource<MessageWrapper>> _invokesPendingCompletion = new();
         private CancellationToken _readStreamCancelToken;
-        private Task _readTask;
+        private Task? _readTask;
 
 
         public ConnectionBase(ICallbackStoreFactory callbackFactory, ILogger logger)
@@ -49,10 +51,11 @@ namespace EasyIpc
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public event EventHandler<IConnectionBase> ReadingEnded;
+        public event EventHandler<IConnectionBase>? ReadingEnded;
 
         public bool IsConnected => _pipeStream?.IsConnected ?? false;
-        public string PipeName { get; protected set; }
+        public string PipeName { get; protected set; } = string.Empty;
+
         public void BeginRead(CancellationToken cancellationToken)
         {
             if (_readTask?.IsCompleted == false)
@@ -69,7 +72,7 @@ namespace EasyIpc
             _pipeStream?.Dispose();
         }
 
-        public Stream GetStream()
+        public Stream? GetStream()
         {
             return _pipeStream;
         }
@@ -96,7 +99,12 @@ namespace EasyIpc
 
                 var result = tcs.Task.Result;
 
-                return Result.Ok((TReturnType)MessagePackSerializer.Deserialize(result.ContentType, result.Content));
+                var deserialized = MessagePackSerializer.Deserialize(result.ContentType, result.Content);
+                if (deserialized is null)
+                {
+                    return Result.Fail<TReturnType>("Failed to deserialize message.");
+                }
+                return Result.Ok((TReturnType)deserialized);
             }
             finally
             {
@@ -105,6 +113,7 @@ namespace EasyIpc
         }
 
         public Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
+            where TContentType : notnull
         {
             var wrapper = new MessageWrapper(typeof(TContentType), content, MessageType.Invoke);
 
@@ -147,12 +156,14 @@ namespace EasyIpc
                 throw new ArgumentNullException(nameof(handler));
             }
 
-            var objectHandler = new Func<object, object>(x => handler((TContentType)x));
+            var objectHandler = new Func<object, object>(x => 
+                handler((TContentType)x) ?? throw new InvalidOperationException("Handler returned null."));
 
             return _callbackStore.Add(objectHandler, typeof(TContentType), typeof(ReturnType));
         }
 
         public Task Send<TContentType>(TContentType content, int timeoutMs = 5000)
+            where TContentType : notnull
         {
             return SendInternal(typeof(TContentType), content, timeoutMs);
         }
@@ -196,7 +207,7 @@ namespace EasyIpc
 
         private async Task ReadFromStream()
         {
-            while (_pipeStream.IsConnected)
+            while (_pipeStream?.IsConnected == true)
             {
                 try
                 {
@@ -248,6 +259,11 @@ namespace EasyIpc
                 if (timeoutMs < 1)
                 {
                     throw new ArgumentException("Timeout must be greater than 0.");
+                }
+
+                if (_pipeStream is null)
+                {
+                    throw new InvalidOperationException("Pipe stream hasn't been created yet.");
                 }
 
                 using var cts = new CancellationTokenSource(timeoutMs);

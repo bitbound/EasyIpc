@@ -9,7 +9,7 @@ NuGet: https://www.nuget.org/packages/Translucency.EasyIpc/
 With Dependency Injection:
 ```
 var serviceCollection = new ServiceCollection();
-EasyIpc.Bootstrapper.RegisterServices(serviceCollection);
+serviceCollection.AddEasyIpc();
 var provider = serviceCollection.BuildServiceProvider();
 
 var router = provider.GetRequiredService<IRouter>();
@@ -18,8 +18,8 @@ var connectionFactory = provider.GetRequiredService<IConnectionFactory>();
 
 Without Dependency Injection:
 ```
-var router = EasyIpc.Bootstrapper.DefaultRouter;
-var connectionFactory = EasyIpc.Bootstrapper.DefaultFactory;
+var router = EasyIpc.Router.Default;
+var connectionFactory = EasyIpc.ConnectionFactory.Default;
 ```
 
 Then:

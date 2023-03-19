@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -11,6 +12,16 @@ namespace EasyIpc
 
     public class CallbackStoreFactory : ICallbackStoreFactory
     {
-        public ICallbackStore Create() => new CallbackStore();
+        private readonly ILoggerFactory _loggerFactory;
+
+        public CallbackStoreFactory(ILoggerFactory loggerFactory)
+        {
+            _loggerFactory = loggerFactory;
+        }
+        public ICallbackStore Create()
+        {
+            var logger = _loggerFactory.CreateLogger<CallbackStore>();
+            return new CallbackStore(logger);
+        }
     }
 }

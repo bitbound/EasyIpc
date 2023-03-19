@@ -8,14 +8,18 @@ namespace EasyIpc
     public class MessageWrapper
     {
         [SerializationConstructor]
-        public MessageWrapper()
+        public MessageWrapper(Type contentType, byte[] content, MessageType messageType, Guid responseTo)
         {
             Id = Guid.NewGuid();
+            ContentType = contentType;
+            Content = content;
+            MessageType = messageType;
+            ResponseTo = responseTo;
         }
 
         public MessageWrapper(Type contentType, object content, MessageType messageType)
-            : this()
         {
+            Id = Guid.NewGuid();
             Content = MessagePackSerializer.Serialize(contentType, content);
             ContentType = contentType;
             MessageType = messageType;
@@ -31,7 +35,7 @@ namespace EasyIpc
         public Guid Id { get; set; }
 
         [DataMember]
-        public byte[] Content { get; set; }
+        public byte[] Content { get; set; } = Array.Empty<byte>();
 
         [DataMember]
         public Type ContentType { get; set; }

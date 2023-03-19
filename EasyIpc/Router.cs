@@ -32,6 +32,9 @@ namespace EasyIpc
 
     public class Router : IRouter
     {
+        private static Router? _default;
+        public static IRouter Default => _default ??= new Router(ConnectionFactory.Default, new LoggerFactory().CreateLogger<Router>());
+
         private static readonly ConcurrentDictionary<string, IServer> _pipeStreams = new();
 
         private readonly IConnectionFactory _serverFactory;
