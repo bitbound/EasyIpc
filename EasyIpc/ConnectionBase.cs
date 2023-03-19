@@ -244,7 +244,7 @@ namespace EasyIpc
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning("Failed to process pipe message.", ex);
+                    _logger.LogWarning(ex, "Failed to process pipe message.");
                 }
             }
 
