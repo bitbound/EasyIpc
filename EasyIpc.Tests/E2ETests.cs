@@ -10,25 +10,31 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EasyIpc.Tests
 {
     [TestClass]
     public class E2ETests
     {
+        private ServiceProvider _services;
         private string _pipeName;
         private CancellationTokenSource _cts;
-        private IConnectionFactory _connectionFactory;
+        private IIpcConnectionFactory _connectionFactory;
         private IIpcServer _server;
         private IIpcClient _client;
 
         [TestInitialize]
         public async Task TestInit()
         {
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddEasyIpc();
+            _services = serviceCollection.BuildServiceProvider();
+
             _pipeName = Guid.NewGuid().ToString();
             _cts = new CancellationTokenSource();
 
-            _connectionFactory = ConnectionFactory.Default;
+            _connectionFactory = _services.GetRequiredService<IIpcConnectionFactory>();
             _server = await _connectionFactory.CreateServer(_pipeName);
             _client = await _connectionFactory.CreateClient(".", _pipeName);
         }
@@ -225,7 +231,7 @@ namespace EasyIpc.Tests
         [TestMethod]
         public async Task Send_GivenIdealScenario_OkThroughput()
         {
-            var connectionFactory = new ConnectionFactory(new CallbackStoreFactory(new LoggerFactory()), new LoggerFactory());
+            var connectionFactory = new IpcConnectionFactory(new CallbackStoreFactory(new LoggerFactory()), new LoggerFactory());
             var server = await connectionFactory.CreateServer("throughput-test");
             var client = await connectionFactory.CreateClient(".", "throughput-test");
 

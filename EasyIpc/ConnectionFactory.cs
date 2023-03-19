@@ -4,27 +4,27 @@ using System.Threading.Tasks;
 
 namespace EasyIpc
 {
-    public interface IConnectionFactory
+    public interface IIpcConnectionFactory
     {
         Task<IIpcClient> CreateClient(string serverName, string pipeName);
         Task<IIpcServer> CreateServer(string pipeName);
     }
 
-    public class ConnectionFactory : IConnectionFactory
+    public class IpcConnectionFactory : IIpcConnectionFactory
     {
-        private static IConnectionFactory? _default;
+        private static IIpcConnectionFactory? _default;
         private readonly ICallbackStoreFactory _callbackFactory;
         private readonly ILoggerFactory _loggerFactory;
 
-        public ConnectionFactory(ICallbackStoreFactory callbackFactory, ILoggerFactory loggerFactory)
+        public IpcConnectionFactory(ICallbackStoreFactory callbackFactory, ILoggerFactory loggerFactory)
         {
             _callbackFactory = callbackFactory;
             _loggerFactory = loggerFactory;
         }
 
-        public static IConnectionFactory Default =>
+        public static IIpcConnectionFactory Default =>
             _default ??= 
-            new ConnectionFactory(new CallbackStoreFactory(new LoggerFactory()), new LoggerFactory());
+            new IpcConnectionFactory(new CallbackStoreFactory(new LoggerFactory()), new LoggerFactory());
 
         public Task<IIpcClient> CreateClient(string serverName, string pipeName)
         {

@@ -33,14 +33,14 @@ namespace EasyIpc
     public class IpcRouter : IIpcRouter
     {
         private static IpcRouter? _default;
-        public static IIpcRouter Default => _default ??= new IpcRouter(ConnectionFactory.Default, new LoggerFactory().CreateLogger<IpcRouter>());
+        public static IIpcRouter Default => _default ??= new IpcRouter(IpcConnectionFactory.Default, new LoggerFactory().CreateLogger<IpcRouter>());
 
         private static readonly ConcurrentDictionary<string, IIpcServer> _pipeStreams = new();
 
-        private readonly IConnectionFactory _serverFactory;
+        private readonly IIpcConnectionFactory _serverFactory;
         private readonly ILogger<IpcRouter> _logger;
 
-        public IpcRouter(IConnectionFactory serverFactory, ILogger<IpcRouter> logger)
+        public IpcRouter(IIpcConnectionFactory serverFactory, ILogger<IpcRouter> logger)
         {
             _serverFactory = serverFactory ?? throw new ArgumentNullException(nameof(serverFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
