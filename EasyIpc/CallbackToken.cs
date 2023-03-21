@@ -4,7 +4,7 @@ using System.Text;
 
 namespace EasyIpc
 {
-    public struct CallbackToken : IEquatable<CallbackToken>
+    public readonly struct CallbackToken : IEquatable<CallbackToken>
     {
         public CallbackToken()
         {

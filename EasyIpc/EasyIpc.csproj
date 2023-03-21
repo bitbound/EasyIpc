@@ -17,7 +17,7 @@
 	<Nullable>enable</Nullable>
 	<AssemblyVersion></AssemblyVersion>
 	<FileVersion></FileVersion>
-	<VersionPrefix>2.2.1</VersionPrefix>
+	<VersionPrefix>2.3.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

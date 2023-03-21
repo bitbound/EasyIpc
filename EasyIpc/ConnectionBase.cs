@@ -20,7 +20,7 @@ namespace EasyIpc
 
         void BeginRead(CancellationToken cancellationToken);
         Stream? GetStream();
-        Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
+        Task<IpcResult<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
             where TContentType : notnull;
 
         void Off<TContentType>();
@@ -81,7 +81,7 @@ namespace EasyIpc
             return _pipeStream;
         }
 
-        public async Task<Result<TReturnType>> Invoke<TReturnType>(MessageWrapper wrapper, int timeoutMs = 5000)
+        public async Task<IpcResult<TReturnType>> Invoke<TReturnType>(MessageWrapper wrapper, int timeoutMs = 5000)
         {
             try
             {
@@ -89,7 +89,7 @@ namespace EasyIpc
                 if (!_invokesPendingCompletion.TryAdd(wrapper.Id, tcs))
                 {
                     _logger.LogWarning("Already waiting for invoke completion of message ID {id}.", wrapper.Id);
-                    return Result.Fail<TReturnType>($"Already waiting for invoke completion of message ID {wrapper.Id}.");
+                    return IpcResult.Fail<TReturnType>($"Already waiting for invoke completion of message ID {wrapper.Id}.");
                 }
 
                 await SendInternal(wrapper, timeoutMs);
@@ -98,7 +98,7 @@ namespace EasyIpc
                 {
                     _logger.LogWarning("Timed out while invoking message type {contentType}.", wrapper.ContentType);
 
-                    return Result.Fail<TReturnType>("Timed out while invoking message.");
+                    return IpcResult.Fail<TReturnType>("Timed out while invoking message.");
                 }
 
                 var result = tcs.Task.Result;
@@ -106,9 +106,9 @@ namespace EasyIpc
                 var deserialized = MessagePackSerializer.Deserialize(result.ContentType, result.Content);
                 if (deserialized is null)
                 {
-                    return Result.Fail<TReturnType>("Failed to deserialize message.");
+                    return IpcResult.Fail<TReturnType>("Failed to deserialize message.");
                 }
-                return Result.Ok((TReturnType)deserialized);
+                return IpcResult.Ok((TReturnType)deserialized);
             }
             finally
             {
@@ -116,7 +116,7 @@ namespace EasyIpc
             }
         }
 
-        public Task<Result<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
+        public Task<IpcResult<TReturnType>> Invoke<TContentType, TReturnType>(TContentType content, int timeoutMs = 5000)
             where TContentType : notnull
         {
             var wrapper = new MessageWrapper(typeof(TContentType), content, MessageType.Invoke);
