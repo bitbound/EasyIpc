@@ -241,10 +241,12 @@ namespace EasyIpc
                 catch (ThreadAbortException ex)
                 {
                     _logger.LogInformation(ex, "IPC connection aborted.  Pipe Name: {pipeName}", PipeName);
+                    break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to process pipe message.");
+                    break;
                 }
             }
 
