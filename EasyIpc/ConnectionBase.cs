@@ -94,21 +94,28 @@ namespace EasyIpc
 
                 await SendInternal(wrapper, timeoutMs);
 
-                if (!await Task.Run(() => tcs.Task.Wait(timeoutMs)))
+                await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
+
+                if (!tcs.Task.IsCompleted)
                 {
                     _logger.LogWarning("Timed out while invoking message type {contentType}.", wrapper.ContentType);
 
                     return IpcResult.Fail<TReturnType>("Timed out while invoking message.");
                 }
-
+                
                 var result = tcs.Task.Result;
 
                 var deserialized = MessagePackSerializer.Deserialize(result.ContentType, result.Content);
-                if (deserialized is null)
+                if (deserialized is TReturnType typedResult)
                 {
-                    return IpcResult.Fail<TReturnType>("Failed to deserialize message.");
+                    return IpcResult.Ok(typedResult);
                 }
-                return IpcResult.Ok((TReturnType)deserialized);
+                return IpcResult.Fail<TReturnType>("Failed to deserialize message.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while invoking.");
+                return IpcResult.Fail<TReturnType>(ex);
             }
             finally
             {
@@ -241,6 +248,21 @@ namespace EasyIpc
                 catch (ThreadAbortException ex)
                 {
                     _logger.LogInformation(ex, "IPC connection aborted.  Pipe Name: {pipeName}", PipeName);
+                    break;
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogInformation("Pipe read operation was cancelled.");
+                    break;
+                }
+                catch (MessagePackSerializationException ex) when (ex.InnerException is EndOfStreamException)
+                {
+                    _logger.LogInformation("Pipe was closed at the other end.");
+                    break;
+                }
+                catch (Exception ex) when (ex.Message == "The operation was canceled.")
+                {
+                    _logger.LogInformation("Pipe read operation was cancelled.");
                     break;
                 }
                 catch (Exception ex)

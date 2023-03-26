@@ -224,6 +224,10 @@ namespace EasyIpc.Tests
             var serverResponse = await _client.Invoke<Ping, Pong>(new Ping("Client Ping"), 1000);
             var clientResponse = await _server.Invoke<Ping, Pong>(new Ping("Server Ping"), 1000);
 
+            _server.Dispose();
+
+            await Task.Delay(5000);
+
             Assert.AreEqual("Pong from Client: Server Ping", clientResponse.Value.Message);
             Assert.AreEqual("Pong from Server: Client Ping", serverResponse.Value.Message);
         }
